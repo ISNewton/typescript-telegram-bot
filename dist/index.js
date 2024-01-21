@@ -22,13 +22,48 @@ var __importStar = (this && this.__importStar) || function (mod) {
     __setModuleDefault(result, mod);
     return result;
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 const telegraf_1 = require("telegraf");
+const axios_1 = __importDefault(require("axios"));
 const dotenv = __importStar(require("dotenv"));
 dotenv.config();
 const bot = new telegraf_1.Telegraf(process.env.BOT_TOKEN);
 bot.start((ctx) => {
-    ctx.reply('Hello ' + ctx.from.first_name + '!');
+    ctx.reply(`Hi ${ctx.from.first_name} \nChoose an option:`, telegraf_1.Markup.inlineKeyboard([
+        telegraf_1.Markup.button.callback("Get available students", "getAvailableStudents"),
+    ]));
+});
+bot.action("getAvailableStudents", async (ctx) => {
+    ctx.editMessageText({
+        text: "Loading students...",
+    });
+    try {
+        const response = await axios_1.default.get(`${process.env.UNISOFT_BASE_URL}/students`);
+        let message = "Students registered in UniSoft:";
+        response.data.students.map((name, key) => {
+            message += `\n ${key + 1} ${name}`;
+        });
+        ctx.editMessageText({
+            text: message,
+        });
+    }
+    catch (error) {
+        if (axios_1.default.isAxiosError(error)) {
+            ctx.editMessageText({
+                text: 'Error with the code: ' + error.code ?? 'UNKNOWN ERROR CODE',
+            });
+            console.log(error);
+        }
+        ctx.editMessageText({
+            text: 'Something went wrong ,try later.',
+        });
+        console.log(error);
+    }
 });
 bot.launch();
+process.once('SIGINT', () => bot.stop('SIGINT'));
+process.once('SIGTERM', () => bot.stop('SIGTERM'));
 //# sourceMappingURL=index.js.map

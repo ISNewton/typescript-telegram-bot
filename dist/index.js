@@ -27,43 +27,68 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 const telegraf_1 = require("telegraf");
-const axios_1 = __importDefault(require("axios"));
 const dotenv = __importStar(require("dotenv"));
+const axios_1 = __importDefault(require("axios"));
+// import fs from 'fs/promises'
+const fs_1 = __importDefault(require("fs"));
 dotenv.config();
 const bot = new telegraf_1.Telegraf(process.env.BOT_TOKEN);
+let awaitingFileUrl = false; // Flag to track file URL expectation
 bot.start((ctx) => {
     ctx.reply(`Hi ${ctx.from.first_name} \nChoose an option:`, telegraf_1.Markup.inlineKeyboard([
-        telegraf_1.Markup.button.callback("Get available students", "getAvailableStudents"),
+        telegraf_1.Markup.button.callback("Upload a file from url", "uploadUrlFile"),
     ]));
 });
-bot.action("getAvailableStudents", async (ctx) => {
-    ctx.editMessageText({
-        text: "Loading students...",
+bot.action("uploadUrlFile", async (ctx) => {
+    awaitingFileUrl = true;
+    ctx.reply("Send a direct url");
+});
+bot.on("message", async (ctx) => {
+    if (!awaitingFileUrl) {
+        return;
+    }
+    await bot.telegram.sendDocument(ctx.chat.id, {
+        source: 'file.mp4',
     });
+    ctx.reply('ended');
+    return;
+    // @ts-ignore
+    const url = ctx.message?.text;
+    const response = await axios_1.default.get(url, {
+        responseType: "stream",
+    });
+    const urlParts = url.split("/");
+    const filename = urlParts[urlParts.length - 1];
+    const extension = filename.split(".").pop() || ""; // Handle cases without extensions
+    const fullFileName = `file.${extension}`;
+    if (extension == "") {
+        return ctx.reply("File does not have an extension.");
+    }
+    let fileStream;
     try {
-        const response = await axios_1.default.get(`${process.env.UNISOFT_BASE_URL}/students`);
-        let message = "Students registered in UniSoft:";
-        response.data.students.map((name, key) => {
-            message += `\n ${key + 1} ${name}`;
-        });
-        ctx.editMessageText({
-            text: message,
-        });
+        fileStream = response.data.pipe(fs_1.default.createWriteStream(fullFileName));
     }
     catch (error) {
-        if (axios_1.default.isAxiosError(error)) {
-            ctx.editMessageText({
-                text: 'Error with the code: ' + error.code ?? 'UNKNOWN ERROR CODE',
-            });
-            console.log(error);
-        }
-        ctx.editMessageText({
-            text: 'Something went wrong ,try later.',
-        });
         console.log(error);
+        ctx.reply('Error reading file url.');
+        return;
     }
+    fileStream.on("finish", async () => {
+        await bot.telegram.sendDocument(ctx.chat.id, {
+            source: fullFileName,
+        });
+        ctx.reply("ended");
+        fs_1.default.stat(fullFileName, (error) => {
+            if (error) {
+                console.log(error);
+                return;
+            }
+            fs_1.default.promises.unlink(fullFileName); // Delete the file after sending
+        });
+        awaitingFileUrl = false;
+    });
 });
 bot.launch();
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
+process.once("SIGINT", () => bot.stop("SIGINT"));
+process.once("SIGTERM", () => bot.stop("SIGTERM"));
 //# sourceMappingURL=index.js.map

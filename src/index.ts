@@ -1,55 +1,94 @@
 import { Context, Markup, Telegraf } from "telegraf";
-import axios from "axios";
 import * as dotenv from "dotenv";
+import axios from "axios";
+import {sendLargeDocument} from './helpers/videoUploader'
+// import fs from 'fs/promises'
+import fs from "fs";
 dotenv.config();
 
 const bot: Telegraf<Context> = new Telegraf(process.env.BOT_TOKEN as string);
+
+let awaitingFileUrl = false; // Flag to track file URL expectation
 
 bot.start((ctx) => {
   ctx.reply(
     `Hi ${ctx.from.first_name} \nChoose an option:`,
     Markup.inlineKeyboard([
-      Markup.button.callback("Get available students", "getAvailableStudents"),
+      Markup.button.callback("Upload a file from url", "uploadUrlFile"),
     ])
   );
 });
 
-bot.action("getAvailableStudents", async (ctx) => {
-  ctx.editMessageText({
-    text: "Loading students...",
-  });
+bot.action("uploadUrlFile", async (ctx) => {
+  awaitingFileUrl = true
+  ctx.reply("Send a direct url");
 
-  try {
-    const response = await axios.get(
-      `${process.env.UNISOFT_BASE_URL}/students`
-    );
-
-    let message = "Students registered in UniSoft:";
-
-    response.data.students.map((name: any, key: any) => {
-      message += `\n ${key + 1} ${name}`;
-    });
-
-    ctx.editMessageText({
-      text: message,
-    });
-  } catch (error: any) {
-    if (axios.isAxiosError(error)) {
-      ctx.editMessageText({
-        text: 'Error with the code: ' + error.code ?? 'UNKNOWN ERROR CODE',
-      });
-      console.log(error)
-    }
-
-    ctx.editMessageText({
-      text: 'Something went wrong ,try later.',
-    });
-
-    console.log(error)
-
-  }
 });
 
+bot.on("message", async (ctx) => {
+  if (!awaitingFileUrl) {
+    return;
+  }
+
+
+  // @ts-ignore
+  const url = ctx.message?.text;
+  const response = await axios.get(url, {
+    responseType: "stream",
+  });
+  const urlParts = url.split("/");
+  const filename = urlParts[urlParts.length - 1];
+  const extension = filename.split(".").pop() || ""; // Handle cases without extensions
+
+  const fullFileName = `file.${extension}`
+
+
+  if (extension == "") {
+    return ctx.reply("File does not have an extension.");
+  }
+
+  let fileStream
+  try {
+    fileStream = response.data.pipe(
+      fs.createWriteStream(fullFileName)
+    );
+  }
+
+  catch(error) {
+
+    console.log(error)
+    ctx.reply('Error reading file url.')
+
+    return
+  }
+
+
+  fileStream.on("finish", async () => {
+    try {
+      await sendLargeDocument(ctx.chat.id , fullFileName)
+    }
+    catch(error) {
+      console.log('sendLargeDocument error')
+
+      ctx.reply("Failed to upload the file .");
+      return
+    }
+
+    ctx.reply("ended");
+
+    fs.stat(fullFileName , (error) => {
+      if(error) {
+        console.log(error)
+        return
+      }
+
+      fs.promises.unlink(fullFileName); // Delete the file after sending
+    })
+    awaitingFileUrl = false;
+  });
+});
+
+
 bot.launch();
-process.once('SIGINT', () => bot.stop('SIGINT'));
-process.once('SIGTERM', () => bot.stop('SIGTERM'));
+process.once("SIGINT", () => bot.stop("SIGINT"));
+process.once("SIGTERM", () => bot.stop("SIGTERM"));

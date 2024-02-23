@@ -70,7 +70,7 @@ bot.on("message", async (ctx) => {
     ctx.reply('Reading file Completed.')
       ctx.reply('Sending file.')
       try {
-        await sendLargeDocument(ctx.chat.id, fullFileName)
+        await sendLargeDocument(ctx, fullFileName)
 
         ctx.reply('Sending file Completed.')
       }

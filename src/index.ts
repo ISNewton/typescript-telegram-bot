@@ -49,9 +49,11 @@ bot.on("message", async (ctx) => {
 
   let fileStream
   try {
+    ctx.reply('Reading file.')
     fileStream = response.data.pipe(
       fs.createWriteStream(fullFileName)
     );
+
   }
 
   catch(error) {
@@ -64,8 +66,13 @@ bot.on("message", async (ctx) => {
 
 
   fileStream.on("finish", async () => {
+    ctx.reply('Reading file Completed.')
     try {
+      ctx.reply('Sending file.')
+      try {
       await sendLargeDocument(ctx.chat.id , fullFileName)
+
+      ctx.reply('Sending file Completed.')
     }
     catch(error) {
       console.log('sendLargeDocument error')
@@ -74,7 +81,7 @@ bot.on("message", async (ctx) => {
       return
     }
 
-    ctx.reply("ended");
+    ctx.reply("ended successfully.");
 
     fs.stat(fullFileName , (error) => {
       if(error) {

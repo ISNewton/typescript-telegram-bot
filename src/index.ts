@@ -1,7 +1,7 @@
 import { Context, Markup, Telegraf } from "telegraf";
 import * as dotenv from "dotenv";
 import axios from "axios";
-import {sendLargeDocument} from './helpers/videoUploader'
+import { sendLargeDocument } from './helpers/videoUploader'
 // import fs from 'fs/promises'
 import fs from "fs";
 dotenv.config();
@@ -33,9 +33,6 @@ bot.on("message", async (ctx) => {
 
   // @ts-ignore
   const url = ctx.message?.text;
-  const response = await axios.get(url, {
-    responseType: "stream",
-  });
   const urlParts = url.split("/");
   const filename = urlParts[urlParts.length - 1];
   const extension = filename.split(".").pop() || ""; // Handle cases without extensions
@@ -47,6 +44,10 @@ bot.on("message", async (ctx) => {
     return ctx.reply("File does not have an extension.");
   }
 
+  const response = await axios.get(url, {
+    responseType: "stream",
+  });
+
   let fileStream
   try {
     ctx.reply('Reading file.')
@@ -56,7 +57,7 @@ bot.on("message", async (ctx) => {
 
   }
 
-  catch(error) {
+  catch (error) {
 
     console.log(error)
     ctx.reply('Error reading file url.')
@@ -67,32 +68,29 @@ bot.on("message", async (ctx) => {
 
   fileStream.on("finish", async () => {
     ctx.reply('Reading file Completed.')
-    try {
       ctx.reply('Sending file.')
       try {
-      await sendLargeDocument(ctx.chat.id , fullFileName)
+        await sendLargeDocument(ctx.chat.id, fullFileName)
 
-      ctx.reply('Sending file Completed.')
-    }
-    catch(error) {
-      console.log('sendLargeDocument error')
+        ctx.reply('Sending file Completed.')
+      }
+      catch (error) {
+        console.log('sendLargeDocument error')
 
-      ctx.reply("Failed to upload the file .");
-      return
-    }
-
-    ctx.reply("ended successfully.");
-
-    fs.stat(fullFileName , (error) => {
-      if(error) {
-        console.log(error)
+        ctx.reply("Failed to upload the file .");
         return
       }
 
-      fs.promises.unlink(fullFileName); // Delete the file after sending
-    })
-    awaitingFileUrl = false;
-  });
+      fs.stat(fullFileName, (error) => {
+        if (error) {
+          console.log(error)
+          return
+        }
+
+        fs.promises.unlink(fullFileName); // Delete the file after sending
+      })
+      awaitingFileUrl = false;
+    });
 });
 
 

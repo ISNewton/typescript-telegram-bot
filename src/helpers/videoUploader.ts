@@ -16,6 +16,8 @@ export async function sendLargeDocument(
       formData,
       {
         headers: { 'Content-Type': 'multipart/form-data' },
+        maxContentLength : Infinity,
+        maxBodyLength : Infinity,
       },
     )
 }

@@ -25,11 +25,11 @@ export async function sendLargeDocument(
       maxContentLength: Infinity,
       maxBodyLength: Infinity,
       validateStatus: (status) => status < 500, // Handle non-400 errors
-      onUploadProgress: (progressEvent) => {
+      onUploadProgress: async (progressEvent) => {
         // Optional: Track upload progress and report to user
         const percentage = Math.round((progressEvent.loaded * 100) / totalSize);
 
-        ctx.reply(`
+        await ctx.reply(`
                   Downloded : ${progressEvent.loaded}
                   Upload progress: ${percentage}%
                   `);

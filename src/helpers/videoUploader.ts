@@ -12,7 +12,10 @@ export async function sendLargeDocument(
 
   const formData = new FormData();
   formData.append("chat_id", ctx.chat?.id);
-  formData.append("document", createReadStream(path));
+  formData.append("document", createReadStream(path) , {
+    contentType: 'application/octet-stream', // Generic content type
+    knownLength: totalSize, // Provide total size for progress tracking
+  });
   formData.append("supports_streaming", "true");
   return await axios.post(
     `http://127.0.0.1:8081/bot${process.env.BOT_TOKEN}/sendDocument`,
